@@ -14,9 +14,7 @@ from custom_components.ecoflow_cloud.sensor import (
     AmpSensorEntity,
     BatteryLimitSensorEntity,
     CapacitySensorEntity,
-    CumulativeCapacitySensorEntity,
     CyclesSensorEntity,
-    EnergySensorEntity,
     InWattsSensorEntity,
     LevelSensorEntity,
     MilliVoltSensorEntity,
@@ -92,14 +90,8 @@ class StreamAC(BaseInternalDevice):
 
     def sensors(self, client: EcoflowApiClient) -> list[SensorEntity]:
         return [
-            # "accuChgCap": 198511,
-            CumulativeCapacitySensorEntity(client, self, "accuChgCap", const.ACCU_CHARGE_CAP, False),
-            # "accuChgEnergy": 3992,
-            EnergySensorEntity(client, self, "accuChgEnergy", const.ACCU_CHARGE_ENERGY, False),
-            # "accuDsgCap": 184094,
-            CumulativeCapacitySensorEntity(client, self, "accuDsgCap", const.ACCU_DISCHARGE_CAP, False),
-            # "accuDsgEnergy": 3646,
-            EnergySensorEntity(client, self, "accuDsgEnergy", const.ACCU_DISCHARGE_ENERGY, False),
+            # No accu* sensors here: stream_ac.proto defines no such field, so
+            # they can never decode on the private API. Don't re-add them.
             # "actSoc": 46.0,
             # "amp": 44671,
             # "backupReverseSoc": 5,

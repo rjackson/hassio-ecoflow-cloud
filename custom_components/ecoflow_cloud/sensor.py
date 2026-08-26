@@ -492,6 +492,42 @@ class WattsSensorEntity(BaseSensorEntity):
         )
 
 
+class DirectionalWattsSensorEntity(WattsSensorEntity):
+    """One direction of a signed power field, reported as a magnitude >= 0.
+
+    Pairs with ``with_energy()``: integrating a signed field directly gives a
+    net figure, but the energy dashboard wants separate monotonic in/out
+    sources. Declare two of these over the same key, ``positive=True`` and
+    ``positive=False``, to get one integral per direction.
+    """
+
+    def __init__(
+        self,
+        client,
+        device,
+        mqtt_key,
+        title,
+        positive: bool = True,
+        enabled=True,
+        auto_enable=False,
+        diagnostic=None,
+    ):
+        super().__init__(client, device, mqtt_key, title, enabled, auto_enable, diagnostic)
+        self._positive = positive
+        # unique_id derives from the mqtt_key alone, so entities sharing a key
+        # would collide and HA would silently drop all but the first.
+        self._attr_unique_id = f"{self._attr_unique_id}-{'charge' if positive else 'discharge'}"
+
+    def _update_value(self, val: Any) -> bool:
+        try:
+            fval = float(val)
+        except (TypeError, ValueError):
+            return False
+        magnitude = fval if self._positive else -fval
+        # + 0.0 normalises -0.0, which max() otherwise preserves.
+        return super()._update_value(max(magnitude, 0.0) + 0.0)
+
+
 class EnergySensorEntity(BaseSensorEntity):
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_native_unit_of_measurement = UnitOfEnergy.WATT_HOUR

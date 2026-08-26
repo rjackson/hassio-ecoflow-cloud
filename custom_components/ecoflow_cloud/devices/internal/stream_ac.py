@@ -15,6 +15,7 @@ from custom_components.ecoflow_cloud.sensor import (
     BatteryLimitSensorEntity,
     CapacitySensorEntity,
     CyclesSensorEntity,
+    DirectionalWattsSensorEntity,
     InWattsSensorEntity,
     LevelSensorEntity,
     MilliVoltSensorEntity,
@@ -73,11 +74,21 @@ class StreamAC(BaseInternalDevice):
                 WattsSensorEntity(client, self, "powGetPv3", const.STREAM_POWER_PV_3, False, True),
                 WattsSensorEntity(client, self, "powGetPv4", const.STREAM_POWER_PV_4, False, True),
             ]
+        # Per-string integrals default to off: PV Total Energy (powGetPvSum) is
+        # what the dashboard wants; enable these only to compare string yields.
         return [
-            WattsSensorEntity(client, self, "powGetPv", const.STREAM_POWER_PV_1),
-            WattsSensorEntity(client, self, "powGetPv2", const.STREAM_POWER_PV_2),
-            WattsSensorEntity(client, self, "powGetPv3", const.STREAM_POWER_PV_3),
-            WattsSensorEntity(client, self, "powGetPv4", const.STREAM_POWER_PV_4),
+            WattsSensorEntity(client, self, "powGetPv", const.STREAM_POWER_PV_1).with_energy(
+                enabled_default=False, energy_title=const.STREAM_ENERGY_PV_N % 1, unit_prefix=None
+            ),
+            WattsSensorEntity(client, self, "powGetPv2", const.STREAM_POWER_PV_2).with_energy(
+                enabled_default=False, energy_title=const.STREAM_ENERGY_PV_N % 2, unit_prefix=None
+            ),
+            WattsSensorEntity(client, self, "powGetPv3", const.STREAM_POWER_PV_3).with_energy(
+                enabled_default=False, energy_title=const.STREAM_ENERGY_PV_N % 3, unit_prefix=None
+            ),
+            WattsSensorEntity(client, self, "powGetPv4", const.STREAM_POWER_PV_4).with_energy(
+                enabled_default=False, energy_title=const.STREAM_ENERGY_PV_N % 4, unit_prefix=None
+            ),
             VoltSensorEntity(client, self, "inVolPv1", const.STREAM_IN_VOL_PV_1, False),
             VoltSensorEntity(client, self, "inVolPv2", const.STREAM_IN_VOL_PV_2, False),
             VoltSensorEntity(client, self, "inVolPv3", const.STREAM_IN_VOL_PV_3, False),
@@ -195,6 +206,15 @@ class StreamAC(BaseInternalDevice):
             # "gridConnectionFreq": 49.974655,
             # "gridConnectionPower": -967.2364,
             WattsSensorEntity(client, self, "gridConnectionPower", const.STREAM_POWER_AC),
+            # Signed: <0 imports to the battery, >0 exports to the home.
+            # Unverified in the export direction -- the dump only caught an
+            # importing device.
+            DirectionalWattsSensorEntity(
+                client, self, "gridConnectionPower", const.STREAM_POWER_AC_EXPORT, positive=True
+            ).with_energy(energy_title=const.STREAM_AC_EXPORT_ENERGY, unit_prefix=None),
+            DirectionalWattsSensorEntity(
+                client, self, "gridConnectionPower", const.STREAM_POWER_AC_IMPORT, positive=False
+            ).with_energy(energy_title=const.STREAM_AC_IMPORT_ENERGY, unit_prefix=None),
             # "gridConnectionSta": "PANEL_GRID_IN",
             # "gridConnectionVol": 235.34576,
             MilliVoltSensorEntity(client, self, "gridConnectionVol", const.STREAM_POWER_VOL, False),
@@ -244,6 +264,15 @@ class StreamAC(BaseInternalDevice):
             # "powConsumptionMeasurement": 2,
             # "powGetBpCms": 1915.0862,
             WattsSensorEntity(client, self, "powGetBpCms", const.STREAM_POWER_BATTERY),
+            # Signed: negative discharging, positive charging. Verified on a
+            # Stream Ultra X, where -446.64 here mirrored powGetSysLoadFromBp
+            # +446.64 exactly.
+            DirectionalWattsSensorEntity(
+                client, self, "powGetBpCms", const.STREAM_POWER_BATTERY_CHARGE, positive=True
+            ).with_energy(energy_title=const.STREAM_BATTERY_CHARGE_ENERGY, unit_prefix=None),
+            DirectionalWattsSensorEntity(
+                client, self, "powGetBpCms", const.STREAM_POWER_BATTERY_DISCHARGE, positive=False
+            ).with_energy(energy_title=const.STREAM_BATTERY_DISCHARGE_ENERGY, unit_prefix=None),
             # Per-PV power/voltage/current -- see _ultra_x_pv_sensors().
             *self._ultra_x_pv_sensors(client),
             # "powGetPvSum": 2051.3975,
@@ -252,24 +281,40 @@ class StreamAC(BaseInternalDevice):
                 unit_prefix=None,
             ),
             # "powGetSchuko1": 0.0,
-            WattsSensorEntity(client, self, "powGetSchuko1", const.STREAM_GET_SCHUKO1, False, True),
+            # powGetSchuko2 gets no integral: no field for it in stream_ac.proto.
+            WattsSensorEntity(client, self, "powGetSchuko1", const.STREAM_GET_SCHUKO1, False, True).with_energy(
+                enabled_default=False, energy_title=const.STREAM_SCHUKO1_ENERGY, unit_prefix=None
+            ),
             # "powGetSchuko2": 18.654325,
             WattsSensorEntity(client, self, "powGetSchuko2", const.STREAM_GET_SCHUKO2, False, True),
             # "powGetSysGrid": -135.0,
             WattsSensorEntity(client, self, "powGetSysGrid", const.STREAM_POWER_GRID),
+            # These are always >= 0 and sum exactly: FromBp + FromGrid + Pv ==
+            # SysLoad (verified on a live Ultra X), so no sign splitting needed.
             # "powGetSysLoad": 0.0,
-            WattsSensorEntity(client, self, "powGetSysLoad", const.STREAM_GET_SYS_LOAD),
+            WattsSensorEntity(client, self, "powGetSysLoad", const.STREAM_GET_SYS_LOAD).with_energy(
+                energy_title=const.STREAM_SYS_LOAD_ENERGY, unit_prefix=None
+            ),
             # "powGetSysLoadFromBp": 0.0,
-            WattsSensorEntity(client, self, "powGetSysLoadFromBp", const.STREAM_GET_SYS_LOAD_FROM_BP),
+            WattsSensorEntity(client, self, "powGetSysLoadFromBp", const.STREAM_GET_SYS_LOAD_FROM_BP).with_energy(
+                energy_title=const.STREAM_SYS_LOAD_FROM_BP_ENERGY, unit_prefix=None
+            ),
             # "powGetSysLoadFromGrid": 0.0,
             WattsSensorEntity(
                 client,
                 self,
                 "powGetSysLoadFromGrid",
                 const.STREAM_GET_SYS_LOAD_FROM_GRID,
-            ),
+            ).with_energy(energy_title=const.STREAM_SYS_LOAD_FROM_GRID_ENERGY, unit_prefix=None),
+            # Absent on all three units checked, but deliberately not switched
+            # to auto_enable: that decides from device.data.params at
+            # construction, which the private/MQTT path does not guarantee is
+            # populated yet, so it could hide the sensor on a model that does
+            # report it.
             # "powGetSysLoadFromPv": 0.0,
-            WattsSensorEntity(client, self, "powGetSysLoadFromPv", const.STREAM_GET_SYS_LOAD_FROM_PV),
+            WattsSensorEntity(client, self, "powGetSysLoadFromPv", const.STREAM_GET_SYS_LOAD_FROM_PV).with_energy(
+                enabled_default=False, energy_title=const.STREAM_SYS_LOAD_FROM_PV_ENERGY, unit_prefix=None
+            ),
             # "powSysAcInMax": 4462,
             # "powSysAcOutMax": 800,
             # "productDetail": 5,

@@ -463,10 +463,19 @@ class WattsSensorEntity(BaseSensorEntity):
         )
         self._energy_enabled = False
         self._energy_enabled_default = True
+        self._energy_title: str | None = None
+        self._energy_unit_prefix: str | None = "k"
 
-    def with_energy(self, enabled_default: bool = True):
+    def with_energy(
+        self,
+        enabled_default: bool = True,
+        energy_title: str | None = None,
+        unit_prefix: str | None = "k",
+    ):
         self._energy_enabled = True
         self._energy_enabled_default = enabled_default
+        self._energy_title = energy_title
+        self._energy_unit_prefix = unit_prefix
         return self
 
     def energy_enabled(self):
@@ -475,7 +484,12 @@ class WattsSensorEntity(BaseSensorEntity):
     def energy_sensor(self):
         if not self._energy_enabled:
             return None
-        return IntegralEnergySensorEntity(self, self._energy_enabled_default)
+        return IntegralEnergySensorEntity(
+            self,
+            self._energy_enabled_default,
+            self._energy_title,
+            self._energy_unit_prefix,
+        )
 
 
 class EnergySensorEntity(BaseSensorEntity):
@@ -868,20 +882,30 @@ class QuotaScheduledStatusSensorEntity(QuotaStatusSensorEntity):
 class IntegralEnergySensorEntity(IntegrationSensor):
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+    # No class-level _attr_native_unit_of_measurement: IntegrationSensor derives
+    # the unit from the source sensor plus unit_prefix (W + "k" -> kWh, W + None
+    # -> Wh). Hardcoding kWh here would override that and mislabel a Wh-integrated
+    # value as kWh -- a silent 1000x error whenever unit_prefix is not "k".
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
     _attr_entity_registry_visible_default = False
 
-    def __init__(self, base: WattsSensorEntity, enabled_default: bool = True):
+    def __init__(
+        self,
+        base: WattsSensorEntity,
+        enabled_default: bool = True,
+        energy_title: str | None = None,
+        unit_prefix: str | None = "k",
+    ):
         version_kwargs: dict[str, Any] = {"hass": base.coordinator.hass} if _INTEGRATION_SENSOR_TAKES_HASS else {}
+        title = energy_title or base.title().replace(f"{const.POWER}", f" {const.ENERGY}")
         super().__init__(
             **version_kwargs,
             integration_method="left",
-            name=f"{base._device.device_info.name} {base.title().replace(f'{const.POWER}', f' {const.ENERGY}')}",
+            name=f"{base._device.device_info.name} {title}",
             round_digits=4,
             source_entity=base.entity_id,
             unique_id=f"{base._attr_unique_id}_energy",
-            unit_prefix="k",
+            unit_prefix=unit_prefix,
             unit_time=UnitOfTime.HOURS,
             max_sub_interval=timedelta(seconds=60),
         )

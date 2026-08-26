@@ -854,8 +854,9 @@ class QuotaStatusSensorEntity(StatusSensorEntity):
         device: BaseDevice,
         title: str = "Status",
         key: str = "status",
+        stall_sec: int | None = None,
     ):
-        super().__init__(client, device, title, key, poll_when_silent=True)
+        super().__init__(client, device, title, key, poll_when_silent=True, stall_sec=stall_sec)
 
 
 class QuotaScheduledStatusSensorEntity(QuotaStatusSensorEntity):

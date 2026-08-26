@@ -21,8 +21,10 @@ from custom_components.ecoflow_cloud.sensor import (
     LevelSensorEntity,
     MilliVoltSensorEntity,
     OutWattsSensorEntity,
+    QuotaStatusSensorEntity,
     RemainSensorEntity,
     StateOfHealthSensorEntity,
+    StatusSensorEntity,
     StoredEnergyFromSocSensorEntity,
     TempSensorEntity,
     VoltSensorEntity,
@@ -353,7 +355,14 @@ class StreamAC(BaseInternalDevice):
             .attr("minCellVol", const.ATTR_MIN_CELL_VOLT, 0)
             .attr("maxCellVol", const.ATTR_MAX_CELL_VOLT, 0),
             # "waterInFlag": 0,
+            self._status_sensor(client),
         ]
+
+    def _status_sensor(self, client: EcoflowApiClient) -> StatusSensorEntity:
+        # 90s, matching the public StreamAC: a healthy Stream reports several
+        # times a minute, so that much silence is unambiguous, while the 300s
+        # assume_offline_sec default would freeze entities for five minutes.
+        return QuotaStatusSensorEntity(client, self, stall_sec=90)
 
     # moduleWifiRssi
     def numbers(self, client: EcoflowApiClient) -> list[NumberEntity]:

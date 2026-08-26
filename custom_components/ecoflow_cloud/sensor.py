@@ -492,6 +492,31 @@ class WattsSensorEntity(BaseSensorEntity):
         )
 
 
+class NegatedWattsSensorEntity(WattsSensorEntity):
+    """A signed power field with its sign flipped.
+
+    Home Assistant's energy dashboard wants battery power as positive while
+    discharging, negative while charging. EcoFlow reports the opposite sign,
+    so expose a negated view for that field to bind to.
+    """
+
+    _SUFFIX = "negated"
+
+    def __init__(self, client, device, mqtt_key, title, enabled=True, auto_enable=False, diagnostic=None):
+        super().__init__(client, device, mqtt_key, title, enabled, auto_enable, diagnostic)
+        # Shares mqtt_key with the un-negated sensor, whose unique_id it would
+        # otherwise collide with.
+        self._attr_unique_id = f"{self._attr_unique_id}-{self._SUFFIX}"
+
+    def _update_value(self, val: Any) -> bool:
+        try:
+            fval = float(val)
+        except (TypeError, ValueError):
+            return False
+        # + 0.0 normalises -0.0.
+        return super()._update_value(-fval + 0.0)
+
+
 class DirectionalWattsSensorEntity(WattsSensorEntity):
     """One direction of a signed power field, reported as a magnitude >= 0.
 

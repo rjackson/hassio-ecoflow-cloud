@@ -19,6 +19,7 @@ from custom_components.ecoflow_cloud.sensor import (
     InWattsSensorEntity,
     LevelSensorEntity,
     MilliVoltSensorEntity,
+    NegatedWattsSensorEntity,
     OutWattsSensorEntity,
     QuotaStatusSensorEntity,
     RemainSensorEntity,
@@ -267,6 +268,14 @@ class StreamAC(BaseInternalDevice):
             # Signed: negative discharging, positive charging. Verified on a
             # Stream Ultra X, where -446.64 here mirrored powGetSysLoadFromBp
             # +446.64 exactly.
+            #
+            # The energy dashboard's "Battery power" field wants the opposite
+            # sign, so expose a negated view for it to bind to. Not powGetSysLoad
+            # (that bundles PV, double-counting it against the solar source) and
+            # not powGetSysLoadFromBp (same magnitude, but unsigned so charging
+            # reads flat, and its sibling powGetSysLoadFromPv is known to
+            # misreport on some firmware).
+            NegatedWattsSensorEntity(client, self, "powGetBpCms", const.STREAM_POWER_BATTERY_SIGNED),
             DirectionalWattsSensorEntity(
                 client, self, "powGetBpCms", const.STREAM_POWER_BATTERY_CHARGE, positive=True
             ).with_energy(energy_title=const.STREAM_BATTERY_CHARGE_ENERGY, unit_prefix=None),

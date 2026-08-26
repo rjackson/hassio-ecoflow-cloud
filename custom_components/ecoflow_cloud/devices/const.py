@@ -402,6 +402,7 @@ STREAM_IN_VOL_PV_3 = "Power PV3 Volts"
 STREAM_IN_VOL_PV_4 = "Power PV4 Volts"
 STREAM_POWER_PV_SUM = "Power PV Sum"
 STREAM_PV_TOTAL_ENERGY = "PV Total Energy"
+STREAM_POWER_BATTERY_SIGNED = "Power Battery Signed"  # powGetBpCms, sign flipped for the energy dashboard
 STREAM_POWER_BATTERY_CHARGE = "Power Battery Charge"  # powGetBpCms, positive half
 STREAM_POWER_BATTERY_DISCHARGE = "Power Battery Discharge"  # powGetBpCms, negative half
 STREAM_BATTERY_CHARGE_ENERGY = "Battery Charge Energy"
